@@ -29,15 +29,12 @@ FONT_CLR = "#1F2937"
 
 def apply_theme(fig):
     fig.update_layout(
-        template="plotly_white",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        font=dict(color="#1F2937"),
+        template="streamlit",
         colorway=PALETTE,
         legend_title_text="",
-        margin=dict(l=30, r=80, t=70, b=30),
+        margin=dict(l=20, r=40, t=50, b=20),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False, automargin=True)
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(127,127,127,0.18)", zeroline=False, automargin=True)
     fig.update_yaxes(showgrid=False, zeroline=False, automargin=True)
     return fig
 
@@ -175,7 +172,8 @@ def bar_metric_view(df, metric, x_title, text_template, color_col=None):
     fig.update_layout(
         xaxis_title=x_title,
         yaxis_title="Бренд",
-        xaxis_range=[0, xmax * 1.22] if xmax and xmax > 0 else None,
+        xaxis_range=[0, xmax * 1.28] if xmax and xmax > 0 else None,
+        margin=dict(l=20, r=90, t=20, b=20),
     )
     fig.update_traces(texttemplate=text_template, textposition="outside", cliponaxis=False)
     sort_hbar(fig)
@@ -312,7 +310,7 @@ if page == "Обзор":
     col1, col2 = st.columns(2)
 
     with col1:
-        section_header("Главные конкуренты Violette")
+        st.markdown('<div style="height:72px;"><h2 style="margin:0;">Главные конкуренты Violette</h2></div>', unsafe_allow_html=True)
         top = f1.sort_values("n_buyers", ascending=False).head(8).copy()
         fig = px.bar(
             top.sort_values("n_buyers", ascending=True),
@@ -323,7 +321,7 @@ if page == "Обзор":
             color_discrete_sequence=[PALETTE[0]],
         )
         fig.update_layout(
-            height=420,
+            height=430,
             xaxis_title="Число покупателей",
             yaxis_title="Бренд",
             xaxis_range=[0, top["n_buyers"].max() * 1.18],
@@ -334,7 +332,7 @@ if page == "Обзор":
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        section_header("Сегменты регулярности", freq_caption())
+        st.markdown('<div style="height:72px;"><h2 style="margin:0;">Сегменты регулярности</h2></div>', unsafe_allow_html=True)\n        st.caption(freq_caption())
         seg_col = safe_first_col(f4_seg, ["segment"])
         n_col = safe_first_col(f4_seg, ["n_buyers"])
         plot_seg = f4_seg.copy()
@@ -353,7 +351,7 @@ if page == "Обзор":
                 "rare (>60 дней)": "#2563EB",
             },
         )
-        fig.update_layout(height=420, xaxis_title="Сегмент частотности", yaxis_title="Число покупателей", showlegend=False)
+        fig.update_layout(height=430, xaxis_title="Сегмент частотности", yaxis_title="Число покупателей", showlegend=False)
         fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
         apply_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
@@ -734,16 +732,11 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 pivot,
                 aspect="auto",
                 labels=dict(x="Месяц", y="Бренд", color="Число покупателей"),
-                color_continuous_scale=[
-                    [0.00, "#FCE7F3"],
-                    [0.33, "#A78BFA"],
-                    [0.66, "#60A5FA"],
-                    [1.00, "#2563EB"],
-                ],
+                color_continuous_scale="Turbo",
             )
             fig.update_layout(
                 height=560,
-                margin=dict(l=40, r=40, t=50, b=40),
+                margin=dict(l=30, r=30, t=50, b=30),
             )
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
@@ -784,7 +777,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 xaxis_title="Число покупателей",
                 yaxis_title="Вкусовая группа",
                 showlegend=False,
-                xaxis_range=[0, flavor_df[buyers_col].max() * 1.25],
+                xaxis_range=[0, flavor_df[buyers_col].max() * 1.32],
                 margin=dict(l=40, r=130, t=50, b=30),
             )
             fig.update_traces(textposition="outside", cliponaxis=False)
@@ -836,7 +829,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 xaxis_title="Число покупателей",
                 yaxis_title="Размер упаковки",
                 showlegend=False,
-                xaxis_range=[0, pack_df[buyers_col].max() * 1.25],
+                xaxis_range=[0, pack_df[buyers_col].max() * 1.32],
                 margin=dict(l=40, r=130, t=50, b=30),
             )
             fig.update_traces(textposition="outside", cliponaxis=False)
@@ -890,7 +883,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 color="Метрика",
                 barmode="group",
                 text="Дни",
-                color_discrete_sequence=[PALETTE[0], PALETTE[4]],
+                color_discrete_sequence=[PALETTE[0], PALETTE[3]],
             )
             fig.update_layout(
                 height=420,
