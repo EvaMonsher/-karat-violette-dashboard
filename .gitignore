@@ -1,0 +1,10 @@
+.venv/
+.DS_Store
+__pycache__/
+*.pyc
+
+data/*
+!data/task_outputs/
+data/task_outputs/*
+!data/task_outputs/csv/
+!data/task_outputs/csv/**
