@@ -332,7 +332,8 @@ if page == "Обзор":
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.markdown('<div style="height:72px;"><h2 style="margin:0;">Сегменты регулярности</h2></div>', unsafe_allow_html=True)\n        st.caption(freq_caption())
+        st.markdown('<div style="height:72px;"><h2 style="margin:0;">Сегменты регулярности</h2></div>', unsafe_allow_html=True)
+        st.caption(freq_caption())
         seg_col = safe_first_col(f4_seg, ["segment"])
         n_col = safe_first_col(f4_seg, ["n_buyers"])
         plot_seg = f4_seg.copy()
