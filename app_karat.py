@@ -846,7 +846,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
     with tab_month:
         section_header(
             "Месячная динамика конкурентного окружения",
-            "База: покупатели брендов внутри категории творожных сыров по месяцам; показаны top-10 брендов по суммарному числу покупателей, при этом Violette принудительно включён для сравнения."
+            "База: покупатели брендов внутри категории творожных сыров по месяцам; показаны top-10 брендов по суммарному числу покупателей, при этом Violette добавляется отдельно для сравнения, если присутствует в витрине."
         )
 
         if not f5_month.empty:
@@ -856,15 +856,22 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             month_col = safe_first_col(month_df, ["year_month"])
             buyers_col = safe_first_col(month_df, ["n_buyers"])
 
+            # чистим мусорные бренды
+            month_df = clean_brand_frame(month_df, brand_col=brand_col)
+
+            # ищем Violette по подстроке
+            brand_values = month_df[brand_col].dropna().astype(str).unique().tolist()
+            violette_candidates = [b for b in brand_values if "violette" in b.lower()]
+            violette_brand = violette_candidates[0] if violette_candidates else None
+
             month_totals = (
                 month_df.groupby(brand_col, as_index=False)[buyers_col]
                 .sum()
                 .sort_values(buyers_col, ascending=False)
             )
 
-            violette_brand = detect_violette_brand(month_df, brand_col=brand_col)
-
             top_brands = month_totals.head(10)[brand_col].tolist()
+
             if violette_brand is not None and violette_brand not in top_brands:
                 top_brands = top_brands[:9] + [violette_brand]
 
@@ -902,11 +909,18 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
 
-            st.caption(
-                "Violette показан первой строкой для удобства сравнения. "
-                "Если 2023-11 и 2023-12 отсутствуют, это нужно трактовать аккуратно как особенность агрегированной "
-                "выгрузки или особенность изначальных данных, касающихся этого периода."
-            )
+            if violette_brand is not None:
+                st.caption(
+                    f"Violette показан первой строкой для удобства сравнения (в витрине бренд найден как: {violette_brand}). "
+                    "Если 2023-11 и 2023-12 отсутствуют, это нужно трактовать аккуратно как особенность агрегированной "
+                    "выгрузки или особенность изначальных данных, касающихся этого периода."
+                )
+            else:
+                st.caption(
+                    "Violette не найден в текущей месячной витрине под названием бренда, поэтому на heatmap показаны только top-10 брендов. "
+                    "Если 2023-11 и 2023-12 отсутствуют, это нужно трактовать аккуратно как особенность агрегированной "
+                    "выгрузки или особенность изначальных данных, касающихся этого периода."
+                )
 
     with tab_flavor:
         section_header("Лидеры по вкусам", "База: покупатели брендов внутри каждой вкусовой группы; неизвестные и безбрендовые значения исключены.")
