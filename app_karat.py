@@ -15,12 +15,10 @@ st.set_page_config(
 # Style / palette
 # =========================
 PALETTE = [
-    "#EC4899",  # strong pink
-    "#7C3AED",  # violet
-    "#14B8A6",  # teal
+    "#EC4899",  # pink
+    "#A78BFA",  # lavender
     "#60A5FA",  # light blue
-    "#2563EB",  # strong blue
-    "#F59E0B",  # amber
+    "#2563EB",  # blue
 ]
 
 PLOT_BG = "white"
@@ -31,13 +29,16 @@ FONT_CLR = "#1F2937"
 
 def apply_theme(fig):
     fig.update_layout(
-        template="plotly",
+        template="plotly_white",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(color="#1F2937"),
         colorway=PALETTE,
         legend_title_text="",
-        margin=dict(l=10, r=10, t=50, b=10),
+        margin=dict(l=30, r=80, t=70, b=30),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(127,127,127,0.20)", zeroline=False)
-    fig.update_yaxes(showgrid=False, zeroline=False)
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False, automargin=True)
+    fig.update_yaxes(showgrid=False, zeroline=False, automargin=True)
     return fig
 
 
@@ -170,8 +171,13 @@ def bar_metric_view(df, metric, x_title, text_template, color_col=None):
         color=color_col,
         color_discrete_sequence=PALETTE,
     )
-    fig.update_layout(xaxis_title=x_title, yaxis_title="Бренд")
-    fig.update_traces(texttemplate=text_template, textposition="outside")
+    xmax = df[metric].max() if metric in df.columns else None
+    fig.update_layout(
+        xaxis_title=x_title,
+        yaxis_title="Бренд",
+        xaxis_range=[0, xmax * 1.22] if xmax and xmax > 0 else None,
+    )
+    fig.update_traces(texttemplate=text_template, textposition="outside", cliponaxis=False)
     sort_hbar(fig)
     apply_theme(fig)
     return fig
@@ -657,7 +663,12 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                     "Не маркетплейс": "#60A5FA",
                 },
             )
-            fig.update_layout(height=540, xaxis_title="Число покупателей", yaxis_title="Бренд")
+            fig.update_layout(
+                height=540,
+                xaxis_title="Число покупателей",
+                yaxis_title="Бренд",
+                margin=dict(l=30, r=80, t=50, b=30),
+            )
             sort_hbar(fig)
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
@@ -696,7 +707,12 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                     "Не маркетплейс": "#60A5FA",
                 },
             )
-            fig.update_layout(height=620, xaxis_title="Число чеков", yaxis_title="Товарная группа")
+            fig.update_layout(
+                height=620,
+                xaxis_title="Число чеков",
+                yaxis_title="Товарная группа",
+                margin=dict(l=30, r=80, t=50, b=30),
+            )
             sort_hbar(fig)
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
@@ -719,14 +735,16 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 aspect="auto",
                 labels=dict(x="Месяц", y="Бренд", color="Число покупателей"),
                 color_continuous_scale=[
-                    [0.0, "#FCE7F3"],
-                    [0.25, "#F9A8D4"],
-                    [0.5, "#BFDBFE"],
-                    [0.75, "#60A5FA"],
-                    [1.0, "#1D4ED8"],
+                    [0.00, "#FCE7F3"],
+                    [0.33, "#A78BFA"],
+                    [0.66, "#60A5FA"],
+                    [1.00, "#2563EB"],
                 ],
             )
-            fig.update_layout(height=520)
+            fig.update_layout(
+                height=560,
+                margin=dict(l=40, r=40, t=50, b=40),
+            )
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
             st.caption(
@@ -766,8 +784,10 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 xaxis_title="Число покупателей",
                 yaxis_title="Вкусовая группа",
                 showlegend=False,
+                xaxis_range=[0, flavor_df[buyers_col].max() * 1.25],
+                margin=dict(l=40, r=130, t=50, b=30),
             )
-            fig.update_traces(textposition="outside")
+            fig.update_traces(textposition="outside", cliponaxis=False)
             sort_hbar(fig)
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
@@ -816,8 +836,10 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 xaxis_title="Число покупателей",
                 yaxis_title="Размер упаковки",
                 showlegend=False,
+                xaxis_range=[0, pack_df[buyers_col].max() * 1.25],
+                margin=dict(l=40, r=130, t=50, b=30),
             )
-            fig.update_traces(textposition="outside")
+            fig.update_traces(textposition="outside", cliponaxis=False)
             sort_hbar(fig)
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
