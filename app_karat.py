@@ -31,15 +31,12 @@ FONT_CLR = "#1F2937"
 
 def apply_theme(fig):
     fig.update_layout(
-        template="plotly_white",
-        plot_bgcolor=PLOT_BG,
-        paper_bgcolor=PAPER_BG,
-        font=dict(color=FONT_CLR),
+        template="plotly",
         colorway=PALETTE,
         legend_title_text="",
         margin=dict(l=10, r=10, t=50, b=10),
     )
-    fig.update_xaxes(showgrid=True, gridcolor=GRID_CLR, zeroline=False)
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(127,127,127,0.20)", zeroline=False)
     fig.update_yaxes(showgrid=False, zeroline=False)
     return fig
 
