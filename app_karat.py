@@ -15,12 +15,12 @@ st.set_page_config(
 # Style / palette
 # =========================
 PALETTE = [
-    "#EC4899",  # pink
-    "#F472B6",  # soft pink
-    "#A78BFA",  # lilac
+    "#EC4899",  # strong pink
+    "#7C3AED",  # violet
+    "#14B8A6",  # teal
     "#60A5FA",  # light blue
-    "#3B82F6",  # blue
-    "#38BDF8",  # sky
+    "#2563EB",  # strong blue
+    "#F59E0B",  # amber
 ]
 
 PLOT_BG = "white"
@@ -316,8 +316,13 @@ if page == "Обзор":
             text="n_buyers",
             color_discrete_sequence=[PALETTE[0]],
         )
-        fig.update_layout(height=420, xaxis_title="Число покупателей", yaxis_title="Бренд")
-        fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", marker_line_width=0)
+        fig.update_layout(
+            height=420,
+            xaxis_title="Число покупателей",
+            yaxis_title="Бренд",
+            xaxis_range=[0, top["n_buyers"].max() * 1.18],
+        )
+        fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", marker_line_width=0, cliponaxis=False)
         sort_hbar(fig)
         apply_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
@@ -335,7 +340,12 @@ if page == "Обзор":
             y=n_col,
             text=n_col,
             color=seg_col,
-            color_discrete_sequence=PALETTE,
+            color_discrete_map={
+                "high_freq (≤14 дней)": "#EC4899",
+                "monthly_like (15–30 дней)": "#A78BFA",
+                "low_freq (31–60 дней)": "#60A5FA",
+                "rare (>60 дней)": "#2563EB",
+            },
         )
         fig.update_layout(height=420, xaxis_title="Сегмент частотности", yaxis_title="Число покупателей", showlegend=False)
         fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
@@ -541,7 +551,12 @@ elif page == "4. Регулярность":
             y=n_col,
             text=n_col,
             color=seg_col,
-            color_discrete_sequence=PALETTE,
+            color_discrete_map={
+                "high_freq (≤14 дней)": "#EC4899",
+                "monthly_like (15–30 дней)": "#A78BFA",
+                "low_freq (31–60 дней)": "#60A5FA",
+                "rare (>60 дней)": "#2563EB",
+            },
         )
         fig.update_layout(
             xaxis_title="Сегмент частотности",
@@ -555,17 +570,39 @@ elif page == "4. Регулярность":
 
     with col2:
         if "median_gap_days" in f4_reg.columns:
-            fig = px.histogram(
-                f4_reg,
-                x="median_gap_days",
-                nbins=30,
-                color_discrete_sequence=[PALETTE[1]],
+            dist_mode = st.radio(
+                "Вид распределения",
+                ["Boxplot", "Violin"],
+                horizontal=True,
+                key="reg_dist_mode",
             )
-            fig.update_layout(
-                xaxis_title="Медианный интервал между покупками, дни (median_gap_days)",
-                yaxis_title="Число покупателей",
-                height=420,
-            )
+
+            if dist_mode == "Boxplot":
+                fig = px.box(
+                    f4_reg,
+                    y="median_gap_days",
+                    points="outliers",
+                    color_discrete_sequence=["#60A5FA"],
+                )
+                fig.update_layout(
+                    xaxis_title="",
+                    yaxis_title="Медианный интервал между покупками, дни (median_gap_days)",
+                    height=420,
+                )
+            else:
+                fig = px.violin(
+                    f4_reg,
+                    y="median_gap_days",
+                    box=True,
+                    points="outliers",
+                    color_discrete_sequence=["#60A5FA"],
+                )
+                fig.update_layout(
+                    xaxis_title="",
+                    yaxis_title="Медианный интервал между покупками, дни (median_gap_days)",
+                    height=420,
+                )
+
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -615,7 +652,10 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 facet_col="channel",
                 facet_col_wrap=2,
                 orientation="h",
-                color_discrete_sequence=PALETTE,
+                color_discrete_map={
+                    "Маркетплейс": "#EC4899",
+                    "Не маркетплейс": "#60A5FA",
+                },
             )
             fig.update_layout(height=540, xaxis_title="Число покупателей", yaxis_title="Бренд")
             sort_hbar(fig)
@@ -651,7 +691,10 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 facet_col="channel",
                 facet_col_wrap=2,
                 orientation="h",
-                color_discrete_sequence=PALETTE,
+                color_discrete_map={
+                    "Маркетплейс": "#EC4899",
+                    "Не маркетплейс": "#60A5FA",
+                },
             )
             fig.update_layout(height=620, xaxis_title="Число чеков", yaxis_title="Товарная группа")
             sort_hbar(fig)
