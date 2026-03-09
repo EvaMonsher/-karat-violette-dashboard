@@ -181,11 +181,88 @@ def bar_metric_view(df, metric, x_title, text_template, color_col=None):
     return fig
 
 
+
 def safe_first_col(df, candidates):
     for c in candidates:
         if c in df.columns:
             return c
     return df.columns[0]
+
+
+INVALID_BRANDS = {
+    "unknown",
+    "no_brand",
+    "none",
+    "null",
+    "nan",
+    "other_or_unknown",
+    "",
+}
+
+
+def clean_brand_frame(df: pd.DataFrame, brand_col: str = "brand") -> pd.DataFrame:
+    if brand_col not in df.columns:
+        return df.copy()
+    out = df.copy()
+    out = out[out[brand_col].notna()].copy()
+    out["_brand_norm"] = out[brand_col].astype(str).str.strip().str.lower()
+    out = out[~out["_brand_norm"].isin(INVALID_BRANDS)].copy()
+    out = out.drop(columns=["_brand_norm"])
+    return out
+
+
+def detect_violette_brand(df: pd.DataFrame, brand_col: str = "brand"):
+    if brand_col not in df.columns:
+        return None
+    vals = df[brand_col].dropna().astype(str).unique().tolist()
+    for v in vals:
+        if "violette" in v.lower():
+            return v
+    return None
+
+
+def ensure_top_with_violette(
+    df: pd.DataFrame,
+    metric: str,
+    top_n: int,
+    brand_col: str = "brand",
+) -> pd.DataFrame:
+    if df.empty or brand_col not in df.columns or metric not in df.columns:
+        return df.copy()
+
+    violette_brand = detect_violette_brand(df, brand_col)
+    ranked = df.sort_values(metric, ascending=False).copy()
+
+    if violette_brand is None:
+        return ranked.head(top_n).copy()
+
+    top = ranked.head(top_n).copy()
+    if violette_brand not in top[brand_col].astype(str).tolist():
+        v_row = ranked[ranked[brand_col].astype(str) == str(violette_brand)].head(1)
+        top = pd.concat([top.head(max(top_n - 1, 0)), v_row], ignore_index=True)
+
+    top["_violette_first"] = (top[brand_col].astype(str) == str(violette_brand)).astype(int)
+    top = top.sort_values(["_violette_first", metric], ascending=[False, False]).drop(columns=["_violette_first"])
+    return top.copy()
+
+
+def ensure_top_by_channel_with_violette(
+    df: pd.DataFrame,
+    metric: str,
+    top_n: int,
+    channel_col: str = "channel",
+    brand_col: str = "brand",
+) -> pd.DataFrame:
+    if df.empty or channel_col not in df.columns:
+        return df.copy()
+
+    parts = []
+    for _, g in df.groupby(channel_col):
+        parts.append(ensure_top_with_violette(g, metric=metric, top_n=top_n, brand_col=brand_col))
+
+    if parts:
+        return pd.concat(parts, ignore_index=True)
+    return df.head(0).copy()
 
 
 # =========================
@@ -229,6 +306,15 @@ f5_pack = frames["task5_switch_pack"].copy()
 f5_cop_marketplace = frames["task5_copurchase_marketplace"].copy()
 f5_cop_group = frames["task5_copurchase_marketplace_grouped"].copy()
 f5_reg_mp = frames["task5_regularity_marketplace"].copy()
+
+# Чистим брендовые витрины от unknown / no_brand / мусорных значений
+f0_brand = clean_brand_frame(f0_brand) if "f0_brand" in locals() else f0_brand
+f1 = clean_brand_frame(f1)
+f2 = clean_brand_frame(f2)
+f5_sw_mp = clean_brand_frame(f5_sw_mp)
+f5_month = clean_brand_frame(f5_month)
+f5_flavor = clean_brand_frame(f5_flavor)
+f5_pack = clean_brand_frame(f5_pack)
 
 for df in [f5_sw_mp, f5_cop_group, f5_reg_mp]:
     if "is_marketplace" in df.columns:
@@ -312,15 +398,32 @@ if page == "Обзор":
     col1, col2 = st.columns(2)
 
     with col1:
-        section_header("Главные конкуренты Violette", "Общая сводка по брендам творожных сыров: top-8 по числу покупателей.")
-        top = f0_brand.sort_values("n_buyers", ascending=False).head(8).copy()
+        section_header(
+            "Главные конкуренты Violette",
+            "База: покупатели брендов в категории творожных сыров; неизвестные и безбрендовые значения исключены."
+        )
+
+        violette_brand = detect_violette_brand(f0_brand)
+        if violette_brand is not None:
+            rank_df = f0_brand.sort_values("n_buyers", ascending=False).reset_index(drop=True).copy()
+            rank_df["rank"] = rank_df.index + 1
+            violette_row = rank_df[rank_df["brand"].astype(str) == str(violette_brand)].head(1)
+            if not violette_row.empty:
+                st.caption(
+                    f"Violette в общем рейтинге: #{int(violette_row['rank'].iloc[0])} "
+                    f"из {len(rank_df)} брендов; покупателей: {fmt_int(violette_row['n_buyers'].iloc[0])}."
+                )
+
+        top = ensure_top_with_violette(f0_brand, metric="n_buyers", top_n=8, brand_col="brand")
+
         fig = px.bar(
             top.sort_values("n_buyers", ascending=True),
             x="n_buyers",
             y="brand",
             orientation="h",
             text="n_buyers",
-            color_discrete_sequence=[PALETTE[0]],
+            color=top["brand"].astype(str).str.contains("violette", case=False, na=False).map({True: "Violette", False: "Другие бренды"}),
+            color_discrete_map={"Violette": "#EC4899", "Другие бренды": "#60A5FA"},
         )
         fig.update_layout(
             height=430,
@@ -328,6 +431,7 @@ if page == "Обзор":
             yaxis_title="Бренд",
             xaxis_range=[0, top["n_buyers"].max() * 1.28],
             margin=dict(l=20, r=90, t=30, b=20),
+            showlegend=False,
         )
         fig.update_traces(
             texttemplate="%{text:,.0f}",
@@ -652,7 +756,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
     with tab_channel:
         section_header(
             "Переключение по каналам",
-            "Если при одновременном показе маркетплейсов и не маркетплейсов какая-то строка с одной из сторон пустая, это означает, что бренд не вошёл в топ в данном канале.",
+            "База: покупатели брендов внутри категории творожных сыров по каждому каналу; Violette принудительно добавляется для сравнения, даже если не входит в top."
         )
 
         top_n = st.slider("Сколько брендов показать", 5, 15, 8, key="t5ch")
@@ -661,7 +765,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
 
         df = f5_sw_mp[f5_sw_mp["channel"].isin(selected)].copy()
         if not df.empty:
-            plot_df = top_by_channel(df, "n_buyers", top_n)
+            plot_df = ensure_top_by_channel_with_violette(df, metric="n_buyers", top_n=top_n, channel_col="channel", brand_col="brand")
 
             fig = px.bar(
                 plot_df,
@@ -740,7 +844,10 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             )
 
     with tab_month:
-        section_header("Месячная динамика конкурентного окружения")
+        section_header(
+            "Месячная динамика конкурентного окружения",
+            "База: покупатели брендов внутри категории творожных сыров по месяцам; показаны top-10 брендов по суммарному числу покупателей, при этом Violette принудительно включён для сравнения."
+        )
 
         if not f5_month.empty:
             month_df = f5_month.copy()
@@ -749,15 +856,19 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             month_col = safe_first_col(month_df, ["year_month"])
             buyers_col = safe_first_col(month_df, ["n_buyers"])
 
-            top10_brands = (
+            month_totals = (
                 month_df.groupby(brand_col, as_index=False)[buyers_col]
                 .sum()
                 .sort_values(buyers_col, ascending=False)
-                .head(10)[brand_col]
-                .tolist()
             )
 
-            month_df = month_df[month_df[brand_col].isin(top10_brands)].copy()
+            violette_brand = detect_violette_brand(month_df, brand_col=brand_col)
+
+            top_brands = month_totals.head(10)[brand_col].tolist()
+            if violette_brand is not None and violette_brand not in top_brands:
+                top_brands = top_brands[:9] + [violette_brand]
+
+            month_df = month_df[month_df[brand_col].isin(top_brands)].copy()
 
             pivot = month_df.pivot_table(
                 index=brand_col,
@@ -766,7 +877,17 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
                 fill_value=0,
             )
 
-            pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=False).index]
+            ordered_brands = (
+                month_df.groupby(brand_col, as_index=False)[buyers_col]
+                .sum()
+                .sort_values(buyers_col, ascending=False)[brand_col]
+                .tolist()
+            )
+
+            if violette_brand is not None and violette_brand in ordered_brands:
+                ordered_brands = [violette_brand] + [b for b in ordered_brands if b != violette_brand]
+
+            pivot = pivot.loc[[b for b in ordered_brands if b in pivot.index]]
 
             fig = px.imshow(
                 pivot,
@@ -782,13 +903,13 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             st.plotly_chart(fig, use_container_width=True)
 
             st.caption(
-                "На heatmap показаны только top-10 брендов по суммарному числу покупателей за весь период. "
+                "Violette показан первой строкой для удобства сравнения. "
                 "Если 2023-11 и 2023-12 отсутствуют, это нужно трактовать аккуратно как особенность агрегированной "
                 "выгрузки или особенность изначальных данных, касающихся этого периода."
             )
 
     with tab_flavor:
-        section_header("Лидеры по вкусам")
+        section_header("Лидеры по вкусам", "База: покупатели брендов внутри каждой вкусовой группы; неизвестные и безбрендовые значения исключены.")
 
         if not f5_flavor.empty:
             flavor_df = f5_flavor.copy()
@@ -840,7 +961,7 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             )
 
     with tab_pack:
-        section_header("Лидеры по упаковкам")
+        section_header("Лидеры по упаковкам", "База: покупатели брендов внутри каждой группы размера упаковки; неизвестные и безбрендовые значения исключены.")
 
         if not f5_pack.empty:
             pack_df = f5_pack.copy()
