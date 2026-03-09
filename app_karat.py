@@ -975,10 +975,15 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             )
 
     with tab_pack:
-        section_header("Лидеры по упаковкам", "База: покупатели брендов внутри каждой группы размера упаковки; неизвестные и безбрендовые значения исключены.")
+        section_header("Лидеры по упаковкам", "База: покупатели брендов внутри каждой группы размера упаковки; неизвестные размеры и безбрендовые значения исключены.")
 
         if not f5_pack.empty:
             pack_df = f5_pack.copy()
+            pack_col = safe_first_col(pack_df, ["pack_bucket"])
+            pack_df = pack_df[
+                pack_df[pack_col].notna()
+                & ~pack_df[pack_col].astype(str).str.strip().str.lower().isin(["unknown", "неизвестный размер", "nan", "none", "null", ""])
+            ].copy()
             pack_col = safe_first_col(pack_df, ["pack_bucket"])
             brand_col = safe_first_col(pack_df, ["brand"])
             buyers_col = safe_first_col(pack_df, ["n_buyers"])
