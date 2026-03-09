@@ -195,6 +195,7 @@ DATA_DIR = find_data_dir()
 CSV_DIR = DATA_DIR / "task_outputs" / "csv"
 
 FILES = {
+    "task0_brand_summary": "task0_brand_summary_overall.csv",
     "task1": "task1_switch_rank_overall.csv",
     "task2": "task2_churn_switch_rank.csv",
     "task3_raw": "task3_copurchase_products.csv",
@@ -213,6 +214,7 @@ FILES = {
 
 frames = {k: load_csv(CSV_DIR / v) for k, v in FILES.items()}
 
+f0_brand = frames["task0_brand_summary"].copy()
 f1 = add_brand_shares(frames["task1"], "violette_buyer_base")
 f2 = add_brand_shares(frames["task2"], "churn_buyer_base")
 f3_raw = frames["task3_raw"].copy()
@@ -310,8 +312,8 @@ if page == "Обзор":
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown('<div style="height:72px;"><h2 style="margin:0;">Главные конкуренты Violette</h2></div>', unsafe_allow_html=True)
-        top = f1.sort_values("n_buyers", ascending=False).head(8).copy()
+        section_header("Главные конкуренты Violette", "Общая сводка по брендам творожных сыров: top-8 по числу покупателей.")
+        top = f0_brand.sort_values("n_buyers", ascending=False).head(8).copy()
         fig = px.bar(
             top.sort_values("n_buyers", ascending=True),
             x="n_buyers",
@@ -324,9 +326,15 @@ if page == "Обзор":
             height=430,
             xaxis_title="Число покупателей",
             yaxis_title="Бренд",
-            xaxis_range=[0, top["n_buyers"].max() * 1.18],
+            xaxis_range=[0, top["n_buyers"].max() * 1.28],
+            margin=dict(l=20, r=90, t=30, b=20),
         )
-        fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", marker_line_width=0, cliponaxis=False)
+        fig.update_traces(
+            texttemplate="%{text:,.0f}",
+            textposition="outside",
+            marker_line_width=0,
+            cliponaxis=False,
+        )
         sort_hbar(fig)
         apply_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
@@ -352,7 +360,13 @@ if page == "Обзор":
                 "rare (>60 дней)": "#2563EB",
             },
         )
-        fig.update_layout(height=430, xaxis_title="Сегмент частотности", yaxis_title="Число покупателей", showlegend=False)
+        fig.update_layout(
+            height=430,
+            xaxis_title="Сегмент частотности",
+            yaxis_title="Число покупателей",
+            showlegend=False,
+            margin=dict(l=20, r=40, t=30, b=20),
+        )
         fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
         apply_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
@@ -727,8 +741,33 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
 
     with tab_month:
         section_header("Месячная динамика конкурентного окружения")
+
         if not f5_month.empty:
-            pivot = f5_month.pivot_table(index="brand", columns="year_month", values="n_buyers", fill_value=0)
+            month_df = f5_month.copy()
+
+            brand_col = safe_first_col(month_df, ["brand"])
+            month_col = safe_first_col(month_df, ["year_month"])
+            buyers_col = safe_first_col(month_df, ["n_buyers"])
+
+            top10_brands = (
+                month_df.groupby(brand_col, as_index=False)[buyers_col]
+                .sum()
+                .sort_values(buyers_col, ascending=False)
+                .head(10)[brand_col]
+                .tolist()
+            )
+
+            month_df = month_df[month_df[brand_col].isin(top10_brands)].copy()
+
+            pivot = month_df.pivot_table(
+                index=brand_col,
+                columns=month_col,
+                values=buyers_col,
+                fill_value=0,
+            )
+
+            pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=False).index]
+
             fig = px.imshow(
                 pivot,
                 aspect="auto",
@@ -737,12 +776,15 @@ elif page == "5. Разрезы: канал / месяц / вкус / упако
             )
             fig.update_layout(
                 height=560,
-                margin=dict(l=30, r=30, t=50, b=30),
+                margin=dict(l=30, r=30, t=40, b=30),
             )
             apply_theme(fig)
             st.plotly_chart(fig, use_container_width=True)
+
             st.caption(
-                "Если 2023-11 и 2023-12 отсутствуют, это нужно трактовать аккуратно как особенность агрегированной выгрузки или особенность изначальных данных, касающихся этого периода."
+                "На heatmap показаны только top-10 брендов по суммарному числу покупателей за весь период. "
+                "Если 2023-11 и 2023-12 отсутствуют, это нужно трактовать аккуратно как особенность агрегированной "
+                "выгрузки или особенность изначальных данных, касающихся этого периода."
             )
 
     with tab_flavor:
